@@ -1,0 +1,83 @@
+run:
+  issues-exit-code: 1
+  modules-download-mode: readonly
+  tests: false
+  timeout: 5m
+
+
+linters:
+  disable-all: true
+  fast: false
+  enable:
+    - bodyclose
+    - dogsled
+    - errcheck
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - err113
+    - gofmt
+    - goimports
+    - mnd
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - copyloopvar
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - funlen
+    - revive
+
+linters-settings:
+  gofmt:
+    simplify: true  # 自動簡化代碼
+  goimports:
+    local-prefixes: "github.com/Chengxufeng1994/hw-mock-tinder-api"  # 本地匯入優先
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  revive:
+    confidence: 0.8
+  goconst:
+    min-occurrences: 5
+  funlen:
+    lines: 120
+    statements: 80
+
+issues:
+  exclude-use-default: true
+
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 0
+
+  # Show only new issues: if there are unstaged changes or untracked files,
+  # only those changes are analyzed, else only changes in HEAD~ are analyzed.
+  # It's a super-useful option for integration of golangci-lint into existing
+  # large codebase. It's not practical to fix all existing issues at the moment
+  # of integration: much better don't allow issues in new code.
+  # Default is false.
+  new: false
+
+  # Show only new issues created after git revision `REV`
+  # new-from-rev: REV
+
+  # Show only new issues created in git patch with set file path.
+  # new-from-patch: path/to/patch/file

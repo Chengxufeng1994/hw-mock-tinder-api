@@ -1,0 +1,22 @@
+logging:
+  format: console
+  level: debug
+  name: mock-tinder
+  outputs:
+    - stdout
+  error_outputs:
+    - stderr
+
+gin_mode: debug
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+database:
+  log_level: debug
+  host: 10.1.5.7
+  port: 30392
+  user: postgres
+  password: P@ssw0rd
+  database: mock_tinder
