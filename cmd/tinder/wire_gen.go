@@ -8,17 +8,21 @@ package main
 
 import (
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application"
-	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/account"
+	account2 "github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/account"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/authn"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/hello"
 	user2 "github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/user"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/auth/service"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/client"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/db"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/oauth"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/persistence/gorm/account"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/persistence/gorm/auth"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/persistence/gorm/user"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/server"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/transaction"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
 )
@@ -28,20 +32,27 @@ import (
 func InitializeApplication(logger logging.Logger, config2 *config.Config) (app, func(), error) {
 	configServer := infrastructure.ProviderServerConfig(config2)
 	helloService := hello.NewHelloService(logger)
-	accountService := account.NewAccountService()
-	accountClient := client.NewAccountClient(accountService)
-	facebookProviderOptions := infrastructure.ProviderFacebookProviderOptionsFromConfig(config2)
-	facebookProvider := oauth.NewFacebookProvider(facebookProviderOptions)
-	authenticateService := authn.NewAuthenticateService(logger, accountClient, facebookProvider)
 	database := infrastructure.ProviderDatabaseConfig(config2)
 	gormDB, cleanup, err := db.NewDB(database)
 	if err != nil {
 		return app{}, nil, err
 	}
-	userRepository := user.NewUserRepository(gormDB)
-	userService := user2.NewUserService(logger, userRepository)
+	transactionManager := transaction.NewTransactionManager(gormDB)
+	accountRepository := account.NewAccountRepository(transactionManager)
+	accountService := account2.NewAccountService(logger, accountRepository)
+	accountClient := client.NewAccountClient(accountService)
+	userRepository := user.NewUserRepository(transactionManager)
+	interestRepository := user.NewInterestRepository(transactionManager)
+	userService := user2.NewUserService(logger, transactionManager, userRepository, interestRepository)
+	userClient := client.NewUserClient(userService)
+	facebookProviderOptions := infrastructure.ProviderFacebookProviderOptionsFromConfig(config2)
+	facebookProvider := oauth.NewFacebookProvider(facebookProviderOptions)
+	configAuth := infrastructure.ProviderAuthConfig(config2)
+	tokenService := service.NewJWTTokenService(configAuth)
+	otpRepository := auth.NewOTPRepository(transactionManager)
+	authenticateService := authn.NewAuthenticateService(logger, accountClient, userClient, facebookProvider, tokenService, otpRepository, transactionManager)
 	applicationService := application.ProviderService(helloService, authenticateService, accountService, userService)
-	handler := interfaces.ProviderRouter(logger, config2, applicationService)
+	handler := interfaces.ProviderRouter(logger, config2, applicationService, gormDB)
 	serverServer := server.NewServer(logger, configServer, handler)
 	mainApp := newApp(serverServer)
 	return mainApp, func() {

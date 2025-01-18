@@ -6,11 +6,14 @@ require (
 	github.com/gin-contrib/cors v1.7.3
 	github.com/gin-contrib/logger v1.2.3
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/spf13/viper v1.19.0
+	github.com/twpayne/go-geom v1.6.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.10.0
 	gorm.io/driver/postgres v1.5.11

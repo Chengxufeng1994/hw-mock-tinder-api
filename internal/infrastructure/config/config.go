@@ -14,6 +14,7 @@ import (
 type Config struct {
 	GinMode  string   `mapstructure:"gin_mode"`
 	Logging  Logging  `mapstructure:"logging"`
+	Auth     Auth     `mapstructure:"auth"`
 	Server   Server   `mapstructure:"server"`
 	Database Database `mapstructure:"database"`
 }
@@ -24,6 +25,11 @@ type Logging struct {
 	Name         string   `mapstructure:"name"`
 	Outputs      []string `mapstructure:"outputs"`
 	ErrorOutputs []string `mapstructure:"error_outputs"`
+}
+
+type Auth struct {
+	SecretKey   SecureString `mapstructure:"secret_key"`
+	ExpiresTime int          `mapstructure:"expires_time"`
 }
 
 type Server struct {
@@ -37,7 +43,7 @@ type Database struct {
 	Port         int    `mapstructure:"port"`
 	User         string `mapstructure:"user"`
 	Password     string `mapstructure:"password"`
-	Database     string `mapstructure:"database"`
+	DBName       string `mapstructure:"dbname"`
 	MaxLifetime  int    `mapstructure:"max_lifetime"`
 	MaxIdleTime  int    `mapstructure:"max_idle_time"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`

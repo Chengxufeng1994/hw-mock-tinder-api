@@ -26,7 +26,7 @@ type Server struct {
 
 func NewServer(logger logging.Logger, config *config.Server, handler http.Handler) *Server {
 	return &Server{
-		logger:  logger.WithName("server"),
+		logger:  logger.WithName("Server"),
 		config:  config,
 		handler: handler,
 	}

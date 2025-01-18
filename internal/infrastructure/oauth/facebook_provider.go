@@ -4,13 +4,19 @@ import (
 	"context"
 
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/port/out"
-	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/shard/valueobject"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/auth/valueobject"
 )
 
 type FacebookProviderOptions struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURL  string
+}
+
+type facebookUserResponse struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 type FacebookProvider struct {
@@ -25,5 +31,11 @@ func NewFacebookProvider(options FacebookProviderOptions) *FacebookProvider {
 }
 
 func (f *FacebookProvider) GetUserInfo(ctx context.Context, token string) valueobject.UserInfo {
-	panic("unimplemented")
+	response := &facebookUserResponse{
+		ID:    "1",
+		Name:  "John Doe",
+		Email: "john_doe@example.com",
+	}
+
+	return valueobject.NewUserInfo(response.ID, response.Name, response.Email)
 }

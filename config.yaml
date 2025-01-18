@@ -7,6 +7,10 @@ logging:
   error_outputs:
     - stderr
 
+auth:
+  secret_key: THIS_MUST_BE_CHANGED_IN_PRODUCTION
+  expires_time: 86400
+
 gin_mode: debug
 
 server:
@@ -15,8 +19,8 @@ server:
 
 database:
   log_level: debug
-  host: 10.1.5.7
-  port: 30392
+  host: 0.0.0.0
+  port: 5432
   user: postgres
-  password: P@ssw0rd
-  database: mock_tinder
+  password: postgres
+  dbname: postgres

@@ -8,7 +8,13 @@ import (
 )
 
 func TestLogger(t *testing.T) {
-	logger := InitializationLogger(&config.Logging{Level: "debug"})
+	logger := InitializationLogger(&config.Logging{
+		Format:       "json",
+		Level:        "debug",
+		Name:         "test",
+		Outputs:      []string{"stdout"},
+		ErrorOutputs: []string{"stderr"},
+	})
 
 	t.Run("default", func(t *testing.T) {})
 

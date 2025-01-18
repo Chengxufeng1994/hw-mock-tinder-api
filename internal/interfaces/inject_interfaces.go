@@ -8,9 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gorm.io/gorm"
 
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/middleware"
 	apiv1 "github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/v1"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
 )
@@ -36,6 +38,7 @@ func ProviderRouter(
 	logger logging.Logger,
 	config *config.Config,
 	application *application.ApplicationService,
+	db *gorm.DB,
 ) http.Handler {
 	gin.SetMode(config.GinMode)
 
@@ -54,6 +57,8 @@ func ProviderRouter(
 	))
 	root.Use(gin.Recovery())
 	root.Use(cors.New(corsConfig))
+	root.Use(middleware.RequestID())
+	root.Use(middleware.ErrorHandler)
 
 	root.GET(MetricAPI, metricsHandler)
 	root.GET(HealthAPI, heartbeatHandler)

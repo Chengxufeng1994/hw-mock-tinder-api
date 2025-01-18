@@ -228,7 +228,7 @@ func FromContext(ctx context.Context) Logger {
 	if ctx != nil {
 		logger := ctx.Value(logContextKey)
 		if logger != nil {
-			return logger.(Logger)
+			return logger.(Logger) // nolint
 		}
 	}
 

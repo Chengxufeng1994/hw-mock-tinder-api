@@ -1,0 +1,62 @@
+name: Docker - build and push
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# These permissions are needed to interact with GitHub's OIDC Token endpoint.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build and push Docker image
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # This is used to fetch all the history in order to get the latest tag (for step "Extract Version")
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+        id: go
+
+      - name: Go version
+        run : go version
+
+      - shell: bash
+        run: echo "tag=sha-$(git rev-parse --short HEAD | sed s/^v//g)" >> $GITHUB_OUTPUT
+        id: version
+
+      - name: Lint
+        run: make lint
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: ${{ inputs.target }}
+          push: false
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.version.outputs.tag }}
+          tags: |
+            mock-tinder-api:${{ steps.version.outputs.tag }}

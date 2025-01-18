@@ -1,6 +1,11 @@
 package account
 
-import "github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/account/query"
+import (
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/account/command"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/account/query"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/account/repository"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
+)
 
 type (
 	AccountService struct {
@@ -8,6 +13,7 @@ type (
 		appQueries
 	}
 	appCommands struct {
+		command.CreateAccountHandler
 	}
 	appQueries struct {
 		query.GetAccountByEmailHandler
@@ -17,11 +23,14 @@ type (
 
 var _ AccountUseCase = (*AccountService)(nil)
 
-func NewAccountService() *AccountService {
+func NewAccountService(logger logging.Logger, accounts repository.AccountRepository) *AccountService {
 	return &AccountService{
-		appQueries: appQueries{
-			GetAccountByEmailHandler: query.NewGetAccountByEmailQueryHandler(),
+		appCommands: appCommands{
+			CreateAccountHandler: command.NewCreateAccountCommandHandler(logger, accounts),
 		},
-		appCommands: appCommands{},
+		appQueries: appQueries{
+			GetAccountByEmailHandler:       query.NewGetAccountByEmailQueryHandler(logger, accounts),
+			GetAccountByPhoneNumberHandler: query.NewGetAccountByPhoneNumberQueryHandler(logger, accounts),
+		},
 	}
 }

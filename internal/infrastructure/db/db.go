@@ -39,7 +39,7 @@ func NewDB(config *config.Database) (*gorm.DB, func(), error) {
 		SkipDefaultTransaction: false,
 		// TranslateError: true,
 	}
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=UTC", config.Host, config.User, config.Password, config.Database, config.Port)
+	dsn := fmt.Sprintf("host=%s port=%d  user=%s password=%s dbname=%s sslmode=disable TimeZone=UTC", config.Host, config.Port, config.User, config.Password, config.DBName)
 	db, err := gorm.Open(postgres.New(postgres.Config{
 		DSN:                  dsn,
 		PreferSimpleProtocol: true,

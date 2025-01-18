@@ -16,6 +16,8 @@ func InitializeApplication(logger logging.Logger, config *config.Config) (app, f
 	wire.Build(
 		infrastructure.InfrastructureSet,
 
+		application.DomainServiceSet,
+
 		application.ApplicationSet,
 
 		interfaces.InterfacesSet,

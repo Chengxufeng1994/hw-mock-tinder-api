@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/middleware"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/v1/auth"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/v1/user"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
@@ -23,8 +24,11 @@ func SetupRouter(
 
 	userController := user.NewUserController(application.UserService)
 	{
-		userGroup := router.Group("/user")
-		userGroup.GET("/", userController.GetCurrentUser)
-		userGroup.POST("/", userController.UpdateCurrentUser)
+		userGroup := router.Group("/users")
+		userGroup.Use(middleware.Authn(application.AuthnService))
+		userGroup.GET("", userController.GetCurrentUser)
+		userGroup.PUT("", userController.UpdateCurrentUser)
+		userGroup.GET("/preferences/recommendations", userController.GetPreferenceRecommendations)
+		userGroup.GET("/recommendations", userController.GetRecommendations)
 	}
 }

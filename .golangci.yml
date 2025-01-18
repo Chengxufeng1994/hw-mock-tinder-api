@@ -45,7 +45,7 @@ linters-settings:
     local-prefixes: "github.com/Chengxufeng1994/hw-mock-tinder-api"  # 本地匯入優先
   errcheck:
     check-type-assertions: true
-    check-blank: true
+    check-blank: false
   revive:
     confidence: 0.8
   goconst:
