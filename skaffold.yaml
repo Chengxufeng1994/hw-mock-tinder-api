@@ -1,0 +1,31 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: tinder
+build:
+  local:
+    push: false
+  artifacts:
+  - image: tinder
+    docker:
+      dockerfile: Dockerfile
+    sync:
+      manual:
+        - src: './**/*.go'
+          dest: .
+manifests:
+  rawYaml:
+    - 'deployments/k8s/*.yaml'
+
+profiles:
+  - name: dev
+    activation:
+      - command: dev
+    deploy:
+      kubectl: {}
+    portForward:
+      - resourceType: service
+        resourceName: tinder
+        namespace: default
+        address: 0.0.0.0
+        port: 8080

@@ -21,16 +21,18 @@ type GetUserByIDQueryResult struct {
 }
 
 type GetUserByIDQueryHandler struct {
-	logger logging.Logger
-	users  repository.UserRepository
+	logger  logging.Logger
+	users   repository.UserRepository
+	matches repository.MatchRepository
 }
 
 var _ GetUserByIDHandler = (*GetUserByIDQueryHandler)(nil)
 
-func NewGetUserQueryHandler(logger logging.Logger, users repository.UserRepository) *GetUserByIDQueryHandler {
+func NewGetUserQueryHandler(logger logging.Logger, users repository.UserRepository, matches repository.MatchRepository) *GetUserByIDQueryHandler {
 	return &GetUserByIDQueryHandler{
-		logger: logger.WithName("GetUserByIDQueryHandler"),
-		users:  users,
+		logger:  logger.WithName("GetUserByIDQueryHandler"),
+		users:   users,
+		matches: matches,
 	}
 }
 
@@ -39,6 +41,11 @@ func (h GetUserByIDQueryHandler) GetUserByID(ctx context.Context, query GetUserB
 	if err != nil {
 		return GetUserByIDQueryResult{}, err
 	}
+	_, err = h.matches.GetMatchedByUserID(ctx, user.ID())
+	if err != nil {
+		return GetUserByIDQueryResult{}, err
+	}
+
 	return GetUserByIDQueryResult{
 		User: user,
 	}, nil

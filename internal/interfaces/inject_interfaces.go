@@ -8,10 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gorm.io/gorm"
 
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/ratelimiter"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/ws"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/middleware"
 	apiv1 "github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces/api/v1"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
@@ -38,7 +39,8 @@ func ProviderRouter(
 	logger logging.Logger,
 	config *config.Config,
 	application *application.ApplicationService,
-	db *gorm.DB,
+	rl ratelimiter.RateLimiter,
+	wsHub *ws.Hub,
 ) http.Handler {
 	gin.SetMode(config.GinMode)
 
@@ -53,7 +55,10 @@ func ProviderRouter(
 
 	root.Use(ginlogger.SetLogger(
 		ginlogger.WithUTC(true),
-		ginlogger.WithSkipPath([]string{HealthAPI, MetricAPI}),
+		ginlogger.WithSkipPath([]string{
+			HealthAPI,
+			MetricAPI,
+		}),
 	))
 	root.Use(gin.Recovery())
 	root.Use(cors.New(corsConfig))
@@ -66,7 +71,7 @@ func ProviderRouter(
 
 	apiGroup := root.Group("/api")
 	v1Group := apiGroup.Group("/v1")
-	apiv1.SetupRouter(logger, v1Group, application)
+	apiv1.SetupRouter(logger, v1Group, application, rl, wsHub)
 
 	return router
 }

@@ -24,3 +24,11 @@ database:
   user: postgres
   password: postgres
   dbname: postgres
+
+cache:
+  type: redis
+  redis:
+    host: 0.0.0.0
+    port: 6379
+    db: 0
+    password: ""

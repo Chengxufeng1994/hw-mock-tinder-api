@@ -156,12 +156,14 @@ func (r UserRepository) GetUserByAccountID(ctx context.Context, accountID string
 func (r UserRepository) GetUserByID(ctx context.Context, id string) (*aggregate.User, error) {
 	tx := r.tm.GetGormTransaction(ctx)
 
+	spec := repository.NewUserSpecificationByID(id)
+
 	var userPO model.User
 	err := tx.WithContext(ctx).
 		Preload("Photos").
 		Preload("Interests").
 		Preload("Preference").
-		Where("id = ?", id).
+		Where(spec.Query(), spec.Value()...).
 		First(&userPO).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

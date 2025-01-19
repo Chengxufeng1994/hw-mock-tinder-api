@@ -82,20 +82,31 @@ test:
 	@echo "==========> running tests"
 	@$(GO) test -v -race -short ./...
 
+
+# Define the YAML file path
+CONFIG_FILE = config.yaml
+
+# Use grep and awk to extract values from the YAML file under the specified root
+DB_HOST = $(shell grep '^database:' -A 6 $(CONFIG_FILE) | grep '^  host:' | awk '{print $$2}')
+DB_PORT = $(shell grep '^database:' -A 6 $(CONFIG_FILE) | grep '^  port:' | awk '{print $$2}')
+DB_USER = $(shell grep '^database:' -A 6 $(CONFIG_FILE) | grep '^  user:' | awk '{print $$2}')
+DB_PASSWORD = $(shell grep '^database:' -A 6 $(CONFIG_FILE) | grep '^  password:' | awk '{print $$2}')
+DB_NAME = $(shell grep '^database:' -A 6 $(CONFIG_FILE) | grep '^  dbname:' | awk '{print $$2}')
+
 .PHONY: migrate.up
  migrate.up:
 	@echo "==========> running goose up"
-	@goose --dir ./migrations postgres "host=0.0.0.0 port=5432 user=postgres password=postgres dbname=postgres sslmode=disable" up
+	@goose --dir ./migrations postgres "host=$(DB_HOST) port=$(DB_PORT) user=$(DB_USER) password=$(DB_PASSWORD) dbname=$(DB_NAME) sslmode=disable" up
 
 .PHONY: migrate.down
  migrate.down:
 	@echo "==========> running goose down"
-	@goose --dir ./migrations postgres "host=0.0.0.0 port=5432 user=postgres password=postgres dbname=postgres sslmode=disable" down
+	@goose --dir ./migrations postgres "host=$(DB_HOST) port=$(DB_PORT) user=$(DB_USER) password=$(DB_PASSWORD) dbname=$(DB_NAME) sslmode=disable" down
 
 .PHONY: migrate.down.to
  migrate.down.to:
 	@echo "==========> running goose down to $(VERSION)"
-	@goose --dir ./migrations postgres "host=0.0.0.0 port=5432 user=postgres password=postgres dbname=postgres sslmode=disable" down-to $(VERSION)
+	@goose --dir ./migrations postgres "host=$(DB_HOST) port=$(DB_PORT) user=$(DB_USER) password=$(DB_PASSWORD) dbname=$(DB_NAME) sslmode=disable" down-to $(VERSION)
 
 .PHONY: migrate.reset
  migrate.reset:
@@ -117,3 +128,22 @@ docker-compose.infra.down:
 docker.build:
 	@echo "==========> running docker.build"
 	@docker build -t tinder-api:latest -t tinder-api:$(shell git rev-parse --short HEAD) .
+
+.PHONY: helm.install.postgres
+helm.install.postgres:
+	@echo "==========> running helm.install.postgres"
+	@helm upgrade --install postgres \
+		--set global.postgresql.auth.postgresPassword=postgres \
+		--set global.postgresql.auth.username=postgres \
+		--set global.postgresql.auth.password=postgres \
+		--set global.postgresql.auth.database=postgres \
+		--set architecture=standalone \
+		--set persistence.enabled=false \
+		bitnami/postgresql
+
+.PHONY: skaffold.dev
+skaffold.dev:
+	@echo "==========> running skaffold.dev"
+	@kubectl delete cm tinder-config 2>/dev/null
+	@kubectl create cm tinder-config --from-file=config.yaml
+	@skaffold dev

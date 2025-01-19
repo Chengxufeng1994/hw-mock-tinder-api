@@ -6,17 +6,22 @@ In this service, it will provide APIs for the client to do the following things:
 
 * Get Recommendation Users (用戶配對列表 API)
   * GET /api/v1/users/recommendations/
+  * GET /api/v1/users/preferences/recommendations/ (使用自己偏好設定)
 
 * Login with facebook (用戶認證 API)
-  * POST /api/v1/login/facebook
+  * POST /api/v1/login/facebook [](./internal/application/service/authn/authn_service.go#L8)
 
 * Login with Sms (用戶認證 API)
-  * POST /api/v1/login/sms
+  * POST /api/v1/login/sms [](./internal/application/service/authn/authn_service.go#L168)
 
-* Get Current User (用戶資料 API)
+* Chat API:
+  * GET /api/v1/users/chats
+  * POST /api/v1/users/message
+
+* Get Current User (查看用戶資料 API)
   * GET /api/v1/users/
 
-* Update Current User (用戶資料 API)
+* Update Current User (更新用戶資料 API)
   * PUT /api/v1/users/
 
 ## 系統水平擴展設計
@@ -27,15 +32,38 @@ In this service, it will provide APIs for the client to do the following things:
 
 ## 高併發優化
 
-* 使用 Redis 進行熱點數據的緩存，減少對資料庫的訪問。
-* 實現批量處理機制，減少 API 請求的數量。
-* 將長時間操作放入消息隊列中，使用背景處理方式非同步執行。
+* 使用緩存
+  * 方案：引入分布式緩存系統（如 Redis、Memcached）以減少數據庫壓力。
+  * 應用場景：頻繁訪問的靜態數據（如JWT Token、熱門查詢結果）。
+  * 策略：設置合理的 TTL（Time-to-Live）避免緩存雪崩。
+
+* 請求排隊與限流
+  * 方案：引入限流中間件（如令牌桶算法）避免過載。
+  * 應用場景：API 請求高峰期間。
+  * 工具：Gin 限流中間件或 Nginx 配置。
 
 ## 水平擴展
 
+* 確保 API 無狀態, 使用 JWT TOKEN 管理。
+* 使用 Traefik, Nginx, Kubernetes 的負載均衡來分發流量，避免單點瓶頸。
 * 服務副本數量可通過 Kubernetes 進行自動擴展（水平擴展）。
-* 使用 Kubernetes 的負載均衡來分發流量，避免單點瓶頸。
 * 根據業務需求進行資料庫的分片和連接池的設置，保證資料庫的高效處理。
+* 引入消息隊列, 解耦系統模塊, 處理異步事件。
+
++-----------------------+         +---------------------+
+|   Load Balancer       |         | Distributed Cache  |
+|  (Nginx/K8s Ingress)  |         |   (Redis)          |
++-----------------------+         +---------------------+
+             |                              |
++-----------------------+         +---------------------+
+|   Mocker Tinder API   |  <----> | Message Queue       |
+|                       |         |   (Kafka/NATS)      |
++-----------------------+         +---------------------+
+             |
++-----------------------+
+|   Database Layer      |
+| (Master-Slave DB)     |
++-----------------------+
 
 ## 實施步驟
 
@@ -48,11 +76,16 @@ In this service, it will provide APIs for the client to do the following things:
 
 1. 基於 JWT 的身份驗證，用戶登錄後通過 JWT 標頭來驗證請求。
 
+## 即時消息處理
+
+  1. 使用 WebSocket 或長輪詢技術實現即時聊天功能。
+  2. 支持消息的已讀未讀狀態更新。
+
 ## 部署與運維
 
 1. 提供基於容器化技術（如 Docker）的一鍵部署方案。
 
-    創建一個 Dockerfile 來構建應用程序的容器映像, 根目錄 Dockerfile
+    * 創建一個 Dockerfile 來構建應用程序的容器映像, 根目錄 Dockerfile
 
 2. 使用 CI/CD 工具（如 GitHub Actions、Jenkins）實現自動化測試與部署流程。
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/server"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/ws"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/signal"
 )
@@ -39,6 +40,11 @@ func main() {
 		return application.srv.ListenAndServe(ctx)
 	})
 
+	eg.Go(func() error {
+		_ = application.ws.Run(ctx)
+		return nil
+	})
+
 	if err := eg.Wait(); err != nil {
 		logger.WithError(err).Error("application exited with error")
 	}
@@ -46,8 +52,9 @@ func main() {
 
 type app struct {
 	srv *server.Server
+	ws  *ws.Hub
 }
 
-func newApp(srv *server.Server) app {
-	return app{srv: srv}
+func newApp(srv *server.Server, ws *ws.Hub) app {
+	return app{srv: srv, ws: ws}
 }

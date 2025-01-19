@@ -1,16 +1,19 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/pressly/goose/v3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/migrations"
 )
 
 func NewDB(config *config.Database) (*gorm.DB, func(), error) {
@@ -79,7 +82,25 @@ func NewDB(config *config.Database) (*gorm.DB, func(), error) {
 		sqlDB.SetMaxIdleConns(config.MaxIdleConns)
 	}
 
+	if err := MigrationDB(sqlDB); err != nil {
+		return nil, nil, err
+	}
+
 	return db, func() {
 		_ = sqlDB.Close()
 	}, nil
+}
+
+func MigrationDB(db *sql.DB) error {
+	goose.SetBaseFS(migrations.EmbedMigrations)
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return err
+	}
+
+	if err := goose.Up(db, "."); err != nil {
+		return err
+	}
+
+	return nil
 }

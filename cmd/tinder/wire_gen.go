@@ -14,6 +14,7 @@ import (
 	user2 "github.com/Chengxufeng1994/hw-mock-tinder-api/internal/application/service/user"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/auth/service"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/cache"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/client"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/db"
@@ -21,8 +22,10 @@ import (
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/persistence/gorm/account"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/persistence/gorm/auth"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/persistence/gorm/user"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/ratelimiter"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/server"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/transaction"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/ws"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/interfaces"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
 )
@@ -32,6 +35,7 @@ import (
 func InitializeApplication(logger logging.Logger, config2 *config.Config) (app, func(), error) {
 	configServer := infrastructure.ProviderServerConfig(config2)
 	helloService := hello.NewHelloService(logger)
+	configAuth := infrastructure.ProviderAuthConfig(config2)
 	database := infrastructure.ProviderDatabaseConfig(config2)
 	gormDB, cleanup, err := db.NewDB(database)
 	if err != nil {
@@ -43,18 +47,24 @@ func InitializeApplication(logger logging.Logger, config2 *config.Config) (app, 
 	accountClient := client.NewAccountClient(accountService)
 	userRepository := user.NewUserRepository(transactionManager)
 	interestRepository := user.NewInterestRepository(transactionManager)
-	userService := user2.NewUserService(logger, transactionManager, userRepository, interestRepository)
+	matchRepository := user.NewMatchRepository(transactionManager)
+	chatRepository := user.NewChatRepository(transactionManager)
+	hub := ws.NewHub(logger)
+	userService := user2.NewUserService(logger, transactionManager, userRepository, interestRepository, matchRepository, chatRepository, hub)
 	userClient := client.NewUserClient(userService)
 	facebookProviderOptions := infrastructure.ProviderFacebookProviderOptionsFromConfig(config2)
 	facebookProvider := oauth.NewFacebookProvider(facebookProviderOptions)
-	configAuth := infrastructure.ProviderAuthConfig(config2)
 	tokenService := service.NewJWTTokenService(configAuth)
 	otpRepository := auth.NewOTPRepository(transactionManager)
-	authenticateService := authn.NewAuthenticateService(logger, accountClient, userClient, facebookProvider, tokenService, otpRepository, transactionManager)
+	configCache := infrastructure.ProviderCacheConfig(config2)
+	cacheCache := cache.NewCache(configCache)
+	authenticateService := authn.NewAuthenticateService(logger, configAuth, accountClient, userClient, facebookProvider, tokenService, otpRepository, transactionManager, cacheCache)
 	applicationService := application.ProviderService(helloService, authenticateService, accountService, userService)
-	handler := interfaces.ProviderRouter(logger, config2, applicationService, gormDB)
+	limiter := infrastructure.ProviderUberRateLimiter()
+	uberRateLimiter := ratelimiter.NewUberRateLimiter(limiter)
+	handler := interfaces.ProviderRouter(logger, config2, applicationService, uberRateLimiter, hub)
 	serverServer := server.NewServer(logger, configServer, handler)
-	mainApp := newApp(serverServer)
+	mainApp := newApp(serverServer, hub)
 	return mainApp, func() {
 		cleanup()
 	}, nil

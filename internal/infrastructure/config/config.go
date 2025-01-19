@@ -17,6 +17,7 @@ type Config struct {
 	Auth     Auth     `mapstructure:"auth"`
 	Server   Server   `mapstructure:"server"`
 	Database Database `mapstructure:"database"`
+	Cache    Cache    `mapstructure:"cache"`
 }
 
 type Logging struct {
@@ -48,6 +49,18 @@ type Database struct {
 	MaxIdleTime  int    `mapstructure:"max_idle_time"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
+}
+
+type Cache struct {
+	Type  string `mapstructure:"type"`
+	Redis Redis  `mapstructure:"redis"`
+}
+
+type Redis struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	DB       int    `mapstructure:"db"`
+	Password string `mapstructure:"password"`
 }
 
 var (

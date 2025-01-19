@@ -43,3 +43,9 @@ type UpdateCurrentUserRequest struct {
 	GenderFilter string   `json:"gender_filter"`
 	Distance     uint     `json:"distance"`
 }
+
+type SendMessageRequest struct {
+	ChatID     string `json:"chat_id"`
+	ReceiverID string `json:"receiver_id"`
+	Content    string `json:"content"`
+}

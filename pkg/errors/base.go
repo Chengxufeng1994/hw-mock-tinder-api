@@ -81,3 +81,8 @@ const (
 	// ErrDecodingYaml - 500: Yaml data could not be decoded.
 	ErrDecodingYaml
 )
+
+const (
+	// ErrWebSocketUpgradeFailed - 500: WebSocket upgrade failed.
+	ErrWebSocketUpgradeFailed int = iota + 100401
+)

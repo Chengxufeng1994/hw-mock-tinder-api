@@ -128,3 +128,27 @@ func (ctrl UserController) GetRecommendations(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response.OKResponse{Data: usersDto})
 }
+
+func (ctrl UserController) SendMessage(c *gin.Context) {
+	var req SendMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apErr := errors.MakeBindError("userController.SendMessage", err.Error())
+		_ = c.Error(apErr)
+		return
+	}
+
+	authDetail := middleware.GetAuthDetailFromContext(c)
+
+	_, err := ctrl.userService.SendMessage(c.Request.Context(), command.SendMessageCommand{
+		ChatID:     req.ChatID,
+		SenderID:   authDetail.UserID,
+		ReceiverID: req.ReceiverID,
+		Content:    req.Content,
+	})
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OKResponse{})
+}

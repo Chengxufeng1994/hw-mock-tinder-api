@@ -90,6 +90,45 @@ CREATE INDEX idx_user_photos_user_id ON user_interests (user_id);
 -- 為 photo_id 添加索引
 CREATE INDEX idx_user_photos_photo_id ON user_photos (photo_id);
 
+-- Matches table
+CREATE TABLE matches (
+  id           SERIAL,
+  user_a_id    TEXT         NOT NULL,
+  user_b_id    TEXT         NOT NULL,
+  status       VARCHAR(10)  NOT NULL,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at   TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT unique_matches UNIQUE (user_a_id, user_b_id)
+);
+
+-- 為 deleted_at 添加索引
+CREATE INDEX idx_matches_deleted_at ON matches (deleted_at);
+
+CREATE TABLE chats (
+  id           TEXT      NOT NULL,
+  match_id     INT       NOT NULL,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at   TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_match FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+);
+
+CREATE TABLE messages (
+  id            SERIAL,
+  chat_id       TEXT         NOT NULL,
+  sender_id     TEXT         NOT NULL,
+  content       TEXT         NOT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at    TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_chat_room FOREIGN KEY (chat_id) REFERENCES chats (id) ON DELETE CASCADE,
+  CONSTRAINT fk_user FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
 -- -- 設定隨機用戶資料生成
 -- WITH random_users AS (
 --   SELECT
@@ -118,7 +157,6 @@ CREATE INDEX idx_user_photos_photo_id ON user_photos (photo_id);
 -- INSERT INTO users (name, age, gender, location)
 -- SELECT name, age, gender, location
 -- FROM random_users;
-
 -- +goose StatementEnd
 
 -- +goose Down

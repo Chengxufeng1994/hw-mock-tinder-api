@@ -42,6 +42,14 @@ services:
       - source: pgpass
         target: /pgpass
 
+  redis:
+    container_name: redis
+    hostname: redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - 6379:6379
+
 configs:
   pgpass:
     content: db:5432:*:postgres:postgres

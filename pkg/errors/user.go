@@ -9,4 +9,10 @@ const (
 
 	// ErrCreateUserFailed - 400: Create user failed.
 	ErrCreateUserFailed
+
+	// ErrMatchNotFound - 404: Match not found.
+	ErrMatchNotFound
+
+	// ErrChatNotFound - 404: Chat not found.
+	ErrChatNotFound
 )

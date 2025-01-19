@@ -2,7 +2,9 @@ package authn
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -12,6 +14,8 @@ import (
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/auth/repository"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/auth/service"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/domain/auth/valueobject"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/cache"
+	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/config"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/internal/infrastructure/transaction"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/errors"
 	"github.com/Chengxufeng1994/hw-mock-tinder-api/pkg/logging"
@@ -51,33 +55,39 @@ func (p *PhoneNumberAccountPolicy) CreateAccount(ctx context.Context, svc *Authe
 
 type AuthenticateService struct {
 	logger        logging.Logger
+	cfg           *config.Auth
 	accounts      out.AccountClient
 	users         out.UserClient
 	oauthProvider out.OAuthProvider
 	tokenService  service.TokenService
 	otpRepository repository.OTPRepository
 	transaction   *transaction.TransactionManager
+	cache         cache.Cache
 }
 
 var _ AuthenticateUseCase = (*AuthenticateService)(nil)
 
 func NewAuthenticateService(
 	logger logging.Logger,
+	cfg *config.Auth,
 	accounts out.AccountClient,
 	users out.UserClient,
 	oauthProvider out.OAuthProvider,
 	tokenService service.TokenService,
 	otpRepository repository.OTPRepository,
 	transaction *transaction.TransactionManager,
+	cache cache.Cache,
 ) *AuthenticateService {
 	return &AuthenticateService{
 		logger:        logger.WithName("AuthenticateService"),
+		cfg:           cfg,
 		accounts:      accounts,
 		users:         users,
 		oauthProvider: oauthProvider,
 		otpRepository: otpRepository,
 		tokenService:  tokenService,
 		transaction:   transaction,
+		cache:         cache,
 	}
 }
 
@@ -85,34 +95,53 @@ func (svc AuthenticateService) LoginWithFacebook(
 	ctx context.Context,
 	cmd command.LoginWithFacebookCommand,
 ) (command.LoginWithFacebookCommandResult, error) {
+	// get user info from OAuth provider
+	userInfo := svc.oauthProvider.GetUserInfo(ctx, cmd.Token)
+	accessToken, err := svc.login(ctx, &EmailAccountPolicy{}, userInfo.Email)
+	if err != nil {
+		return command.LoginWithFacebookCommandResult{}, err
+	}
+	return command.LoginWithFacebookCommandResult{AccessToken: accessToken.Value()}, nil
+}
+
+func (svc AuthenticateService) LoginWithSms(
+	ctx context.Context,
+	cmd command.LoginWithSMSCommand,
+) (command.LoginWithSMSCommandResult, error) {
+	accessToken, err := svc.login(ctx, &PhoneNumberAccountPolicy{}, cmd.PhoneNumber)
+	if err != nil {
+		return command.LoginWithSMSCommandResult{}, err
+	}
+	return command.LoginWithSMSCommandResult{AccessToken: accessToken.Value()}, nil
+}
+
+func (svc *AuthenticateService) login(ctx context.Context, policy AccountPolicy, identifier string) (valueobject.Token, error) {
 	var accessToken valueobject.Token
 	err := svc.transaction.Execute(ctx, func(txCtx context.Context) error {
-		// get user info from OAuth provider
-		userInfo := svc.oauthProvider.GetUserInfo(txCtx, cmd.Token)
-
-		account, err := svc.getOrCreateAccount(txCtx, &EmailAccountPolicy{}, userInfo.Email)
+		account, err := svc.getOrCreateAccount(txCtx, policy, identifier)
 		if err != nil {
-			return errors.NewAppError("LoginWithFacebookCommand", "app.account.not.found", nil, "", http.StatusNotFound, errors.ErrAccountNotFound)
+			return errors.NewAppError("login", "app.account.not.found", nil, "", http.StatusNotFound, errors.ErrAccountNotFound)
 		}
 
 		user, err := svc.getOrCreateUser(txCtx, account.ID)
 		if err != nil {
-			return errors.NewAppError("LoginWithFacebookCommand", "app.user.not.found", nil, "", http.StatusNotFound, errors.ErrUserNotFound)
+			return errors.NewAppError("login", "app.user.not.found", nil, "", http.StatusNotFound, errors.ErrUserNotFound)
 		}
 
 		authDetail := valueobject.NewAuthDetail(account.ID, user.ID)
 		accessToken, err = svc.tokenService.GenerateAccessToken(txCtx, authDetail)
 		if err != nil {
-			return errors.MakeTokenInvalid("LoginWithFacebookCommand.GenerateAccessToken")
+			return errors.MakeTokenInvalid("login.GenerateAccessToken")
 		}
 
-		return nil
+		return svc.cacheAccessToken(ctx, user.ID, accessToken)
 	})
+
 	if err != nil {
-		return command.LoginWithFacebookCommandResult{}, err
+		return valueobject.Token{}, err
 	}
 
-	return command.LoginWithFacebookCommandResult{AccessToken: accessToken.Value()}, nil
+	return accessToken, nil
 }
 
 // getOrCreateAccount checks if the account exists, otherwise creates it
@@ -165,44 +194,12 @@ func (svc *AuthenticateService) getOrCreateUser(ctx context.Context, accountID s
 	return user, nil
 }
 
-func (svc AuthenticateService) LoginWithSms(
-	ctx context.Context,
-	cmd command.LoginWithSMSCommand,
-) (command.LoginWithSMSCommandResult, error) {
-	var accessToken valueobject.Token
-	err := svc.transaction.Execute(ctx, func(txCtx context.Context) error {
-		account, err := svc.getOrCreateAccount(txCtx, &PhoneNumberAccountPolicy{}, cmd.PhoneNumber)
-		if err != nil {
-			return errors.NewAppError("LoginWithSMSCommand", "app.account.not.found", nil, "", http.StatusNotFound, errors.ErrAccountNotFound)
-		}
-
-		otp, err := svc.otpRepository.GetOTPByAccountID(txCtx, account.ID)
-		if err != nil {
-			return errors.NewAppError("LoginWithSMSCommand", "app.otp.not.found", nil, "", http.StatusNotFound, errors.ErrOTPNotFound)
-		}
-		ok := otp.VerifyCode(cmd.Code)
-		if !ok {
-			return errors.NewAppError("LoginWithSMSCommand", "app.otp.invalid", nil, "", http.StatusBadRequest, errors.ErrOTPInvalid)
-		}
-
-		user, err := svc.getOrCreateUser(txCtx, account.ID)
-		if err != nil {
-			return err
-		}
-
-		authDetail := valueobject.NewAuthDetail(account.ID, user.ID)
-		accessToken, err = svc.tokenService.GenerateAccessToken(txCtx, authDetail)
-		if err != nil {
-			return errors.MakeTokenInvalid("LoginWithSMSCommand.GenerateAccessToken")
-		}
-
-		return svc.otpRepository.Save(txCtx, otp)
-	})
-	if err != nil {
-		return command.LoginWithSMSCommandResult{}, err
-	}
-
-	return command.LoginWithSMSCommandResult{AccessToken: accessToken.Value()}, nil
+func (svc *AuthenticateService) cacheAccessToken(ctx context.Context, userID string, accessToken valueobject.Token) error {
+	return svc.cache.SetWithExpire(ctx,
+		fmt.Sprintf("user:%s:accessToken", userID),
+		accessToken.Value(),
+		time.Duration(svc.cfg.ExpiresTime)*time.Second,
+	)
 }
 
 func (svc AuthenticateService) VerifyAccessToken(
@@ -214,6 +211,13 @@ func (svc AuthenticateService) VerifyAccessToken(
 	result.AuthDetail, err = svc.tokenService.VerifyAccessToken(ctx, valueobject.NewToken(cmd.AccessToken))
 	if err != nil {
 		return command.VerifyAccessTokenCommandResult{}, err
+	}
+	accessToken, err := svc.cache.Get(ctx, fmt.Sprintf("user:%s:accessToken", result.AuthDetail.UserID))
+	if err != nil {
+		return command.VerifyAccessTokenCommandResult{}, err
+	}
+	if accessToken != cmd.AccessToken {
+		return command.VerifyAccessTokenCommandResult{}, errors.MakeTokenInvalid("VerifyAccessTokenCommand")
 	}
 	return result, nil
 }
